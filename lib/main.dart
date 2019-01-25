@@ -1,8 +1,43 @@
-import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
-import 'package:http/http.dart';
+import 'dart:async';
+import 'dart:convert';
 
-void main() => runApp(new MyApp());
+import 'package:flutter/material.dart';
+import 'randomWords.dart';
+import 'package:http/http.dart' as http;
+
+Future<Post> fetchPost() async {
+  final response =
+      await http.get('https://jsonplaceholder.typicode.com/posts/1');
+
+  if (response.statusCode == 200) {
+    // If the call to the server was successful, parse the JSON
+    return Post.fromJson(json.decode(response.body));
+  } else {
+    // If that call was not successful, throw an error.
+    throw Exception('Failed to load post');
+  }
+}
+
+class Post {
+  final int userId;
+  final int id;
+  final String title;
+  final String body;
+
+  Post({this.userId, this.id, this.title, this.body});
+
+  factory Post.fromJson(Map<String, dynamic> json) {
+    return Post(
+      userId: json['userId'],
+      id: json['id'],
+      title: json['title'],
+      body: json['body'],
+    );
+  }
+}
+
+//void main() => runApp(new MyApp());
+void main() => runApp(ToDo(post: fetchPost()));
 
 class MyApp extends StatelessWidget {
   @override
@@ -17,100 +52,41 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class RandomWordsState extends State<RandomWords> {
-  
-  final List<WordPair> _suggestions = <WordPair>[];
-  final Set<WordPair> _saved = new Set<WordPair>();
-  final TextStyle _biggerFont = const TextStyle(fontSize: 18.0);
-  
+
+class ToDo extends StatelessWidget {
+  final Future<Post> post;
+
+  ToDo({Key key, this.post}) : super(key: key);
+
   @override
   Widget build(BuildContext context) {
-    return new Scaffold (
-      appBar: new AppBar(
-        title: new Text('Startup Name Generator'),
-        actions: <Widget>[
-          new IconButton(icon: const Icon(Icons.list), onPressed: _pushSaved),
-        ],
+    return MaterialApp(
+      title: 'Fetch Data Example',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
       ),
-      body: _buildSuggestions(),
-    );
-  }
+      home: Scaffold(
+        appBar: AppBar(
+          title: Text('Fetch Data Example'),
+        ),
+        body: Center(
+          child: FutureBuilder<Post>(
+            future: post,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                return Text(snapshot.data.title);
+              } else if (snapshot.hasError) {
+                return Text("${snapshot.error}");
+              }
 
-  void _pushSaved() {
-    Navigator.of(context).push(
-      new MaterialPageRoute<void>(
-        builder: (BuildContext context) {
-          final Iterable<ListTile> tiles = _saved.map(
-            (WordPair pair) {
-              return new ListTile(
-                title: new Text(
-                  pair.asPascalCase,
-                  style: _biggerFont,
-                ),
-              );
+              // By default, show a loading spinner
+              return CircularProgressIndicator();
             },
-          );
-          final List<Widget> divided = ListTile
-            .divideTiles(
-              context: context,
-              tiles: tiles,
-            )
-            .toList();
-
-            return new Scaffold(
-              appBar: new AppBar(
-                title: const Text('Saved Suggestions'),
-              ),
-              body: new ListView(children: divided),
-            );
-        }
-      )
-    );
-  }
-
-  Widget _buildSuggestions() {
-    return new ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemBuilder: (BuildContext _context, int i) {
-        if (i.isOdd) {
-          return new Divider();
-        }
-        final int index = i ~/ 2;
-        if (index >= _suggestions.length) {
-          _suggestions.addAll(generateWordPairs().take(10));
-        }
-        return _buildRow(_suggestions[index]);
-      }
-    );
-  }
-
-  Widget _buildRow(WordPair pair) {
-
-    final bool alreadySaved = _saved.contains(pair);
-
-    return new ListTile(
-      title: new Text(
-        pair.asPascalCase,
-        style: _biggerFont,
+          ),
+        ),
       ),
-      trailing: new Icon(
-        alreadySaved ? Icons.favorite : Icons.favorite_border,
-        color: alreadySaved ? Colors.red : null
-      ),
-      onTap: () {
-        setState(() {
-          if (alreadySaved) {
-            _saved.remove(pair);
-          } else {
-            _saved.add(pair);
-          }
-        });
-      }
     );
   }
 }
 
-class RandomWords extends StatefulWidget {
-  @override
-  RandomWordsState createState() => new RandomWordsState();
-}
+
